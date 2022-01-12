@@ -1,0 +1,237 @@
+# 111/01/12
+# 台評會 新生學習適應問卷
+
+rm(list=ls())
+
+
+library(openxlsx) # getSheetNames() read.xlsx()
+library(tidyverse)
+library(readr)
+
+#讀資料
+data_sheet = read.xlsx("C:\\Users\\User\\Desktop\\.xlsx", sheet=1,colNames = TRUE) #讀取sheet1
+st_sheet = read.xlsx("C:\\Users\\User\\Desktop\\.xlsx", sheet=2,colNames = TRUE) #讀取sheet2
+
+st_sheet = st_sheet %>%
+    select(帳號,stud_no,college_name,majr_full_name,majr_simple_name,
+             sex,kind1_name )
+data = data_sheet[,c(1,4,6:15,19,155,157,172,21:26)] %>%
+    left_join(st_sheet, by="帳號" )
+
+#which(is.na(data$stud_no)== TRUE) #第119筆為遺漏值
+#data = data[-119, ] #刪除 第119筆為遺漏值
+
+names(data)
+
+all_data = NULL
+# 7大學「學費」主要來源（可複選）
+data1 = NULL
+# 分離每個人的選項
+for (i in 1:length(data$stud_no)) {
+    cc1 = strsplit(data$`7How.do.you.afford.to.pay.for.your.tuition.fees?.(multiple.choices)`[i],split=";") %>% unlist 
+    cc1 = data.frame("帳號"=data$帳號[i],"x7學費來源"=cc1)
+    data1 = rbind(data1, cc1)
+    rm(cc1)
+}
+data1[,2]=gsub(" ","",data1[,2]) #去 空白
+data1$`7其他內容` = ifelse( grepl("Other",data1$x7學費來源)==TRUE,gsub("Other/","",data1$x7學費來源),"") # 其他的內容 另外放
+data1$x7學費來源 = ifelse( grepl("Other",data1$x7學費來源)==TRUE,"Other",data1$x7學費來源) #整理'其他'
+data1$value = 1
+data2 = data1 %>% select(帳號,`7其他內容`) %>% filter(`7其他內容`!="")
+data1 = data1 %>%
+    select(-`7其他內容`) %>%
+    spread("x7學費來源",value,fill=0) #轉寬表格
+names(data1) = c("帳號","7家庭提供","7打工或工讀所得","7助學貸款","7其他","7校內外獎助學金")
+all_data = data1 %>%
+    left_join(data2)
+rm(data2)
+
+# 8 學習及生活費（書籍、住宿、交通、伙食等開銷）主要來源（可複選）
+data1 = NULL
+# 分離每個人的選項
+for (i in 1:length(data$stud_no)) {
+    cc1 = strsplit(data$`8How.do.you.afford.to.pay.for.the.cost.of.learning.and.living.(including.books,.housing,.transportation,.food.and.etc.)?.(multiple.choices)`[i],split=";") %>% unlist 
+    cc1 = data.frame("帳號"=data$帳號[i],"x8生活費來源"=cc1)
+    data1 = rbind(data1, cc1)
+    rm(cc1)
+}
+data1[,2]=gsub(" ","",data1[,2]) #去 空白
+data1$`8其他內容` = ifelse( grepl("Other",data1$x8生活費來源)==TRUE,gsub("Other/","",data1$x8生活費來源),"") # 其他的內容 另外放
+data1$x8生活費來源 = ifelse( grepl("Other",data1$x8生活費來源)==TRUE,"Other",data1$x8生活費來源) #整理'其他'
+data1$value = 1
+data2 = data1 %>% select(帳號,`8其他內容`) %>% filter(`8其他內容`!="")
+data1 = data1 %>%
+    select(-`8其他內容`)%>%
+    spread("x8生活費來源",value,fill=0)
+names(data1) = c("帳號","8家庭提供","8打工或工讀所得","8助學貸款","8其他","8校內外獎助學金")
+data1 = data1 %>% left_join(data2)
+all_data = all_data%>%
+    left_join(data1)
+rm(data2)
+
+#10得知本校最主要的管道（可複選）
+data1 = NULL
+# 分離每個人的選項
+for (i in 1:length(data$stud_no)) {
+    cc1 = strsplit(data$`10The.ways.of.obtaining.information.on.your.current.school.(multiple.choices)`[i],split=";") %>% unlist 
+    cc1 = data.frame("帳號"=data$帳號[i],"x10得知本校最主要的管道"=cc1)
+    data1 = rbind(data1, cc1)
+    rm(cc1)
+}
+data1[,2]=gsub(" ","",data1[,2]) #去 空白
+data1$value = 1
+data1 = data1 %>%
+    spread("x10得知本校最主要的管道",value,fill=0)
+names(data1) = c("帳號","10本校進班宣導", "10科系聲望", "10家人", "10朋友、同學、學長姐", "10高中職/五專老師","10學校聲望", "10本校教師", "10網路資訊")
+all_data = all_data%>%
+    left_join(data1)
+
+# 11決定就讀本校最主要的原因（可複選）
+data1 = NULL
+# 分離每個人的選項
+for (i in 1:length(data$stud_no)) {
+    cc1 = strsplit(data$`11The.main.reasons.for.selecting.your.current.school.(multiple.choices)`[i],split=";") %>% unlist 
+    cc1 = data.frame("帳號"=data$帳號[i],"x11就讀本校原因"=cc1)
+    data1 = rbind(data1, cc1)
+    rm(cc1)
+}
+data1[,2]=gsub(" ","",data1[,2]) #去 空白
+data1$value = 1
+data1 = data1 %>%
+    spread("x11就讀本校原因",value,fill=0)
+names(data1) = c("帳號","11家人的影響或建議", "11朋友、同學、學長姐的影響或建議", "11老師的影響或建議", "11符合生涯發展規劃", 
+                 "11科系聲望", "11校園環境及設施", "11師資陣容", "11經濟考量（學雜費、獎學金、住宿費等）", "11認同學校教育目標", 
+                 "11校園國際化程度", "11地緣關係", "11學校聲望", "11考試成績決定")
+all_data = all_data%>%
+    left_join(data1)
+
+# 12我選擇目前就讀「科系」的動機（可複選）
+data1 = NULL
+# 分離每個人的選項
+for (i in 1:length(data$stud_no)) {
+    cc1 = strsplit(data$`12The.considerations.for.selecting.your.current.major.(multiple.choices)`[i],split=";") %>% unlist 
+    cc1 = data.frame("帳號"=data$帳號[i],"x12就讀科系動機"=cc1)
+    data1 = rbind(data1, cc1)
+    rm(cc1)
+}
+data1[,2]=gsub(" ","",data1[,2]) #去 空白
+data1$value = 1
+data1 = data1 %>%
+    spread("x12就讀科系動機",value,fill=0)
+names(data1) = c("帳號", "12較容易就業", "12想學習專業知能", "12受同儕影響", "12符合個人興趣", "12受師長影響")
+all_data = all_data%>%
+    left_join(data1)
+
+# 18目前就讀科系是否舉辦下列新生活動（可複選）
+data1 = NULL
+# 分離每個人的選項
+for (i in 1:length(data$stud_no)) {
+    cc1 = strsplit(data$`18Were.the.following.activities.held.for.freshmen?.(multiple.choices)`[i],split=";") %>% unlist 
+    cc1 = data.frame("帳號"=data$帳號[i],"x18新生活動"=cc1)
+    data1 = rbind(data1, cc1)
+    rm(cc1)
+}
+data1[,2]=gsub(" ","",data1[,2]) #去 空白
+data1$`18其他內容` = ifelse( grepl("other",data1$x18新生活動)==TRUE,gsub("other/","",data1$x18新生活動),"") # 其他的內容 另外放
+data1$x18新生活動 = ifelse( grepl("other",data1$x18新生活動)==TRUE,"other",data1$x18新生活動) #整理'其他'
+data1$value = 1
+data2 = data1 %>% select(帳號,`18其他內容`) %>% filter(`18其他內容`!="")
+data1 = data1 %>%
+    select(-`18其他內容`)%>%
+    spread("x18新生活動",value,fill=0)
+names(data1) = c("帳號", "18直系學長姐自辦活動/聚會", "18無", "18系新生說明會", "18全校性新生說明會", "18迎新活動")
+data1 = data1 %>% left_join(data2)
+all_data = all_data%>%
+    left_join(data1)
+rm(data2)
+
+# 30入學至今，我感到比較困擾的問題（可複選）
+data1 = NULL
+# 分離每個人的選項
+for (i in 1:length(data$stud_no)) {
+    cc1 = strsplit(data$`30To.date,.which.of.the.following.in.college.has.ever.troubled.you?.(multiple.choices)` [i],split=";") %>% unlist 
+    cc1 = data.frame("帳號"=data$帳號[i],"x30困擾的問題"=cc1)
+    data1 = rbind(data1, cc1)
+    rm(cc1)
+}
+data1[,2]=gsub(" ","",data1[,2]) #去 空白
+data1$`30其他內容` = ifelse( grepl("other",data1$x30困擾的問題)==TRUE,gsub("other/","",data1$x30困擾的問題),"") # 其他的內容 另外放
+data1$x30困擾的問題 = ifelse( grepl("other",data1$x30困擾的問題)==TRUE,"other",data1$x30困擾的問題) #整理'其他'
+data1$value = 1
+data2 = data1 %>% select(帳號,`30其他內容`) %>% filter(`30其他內容`!="")
+data1 = data1 %>%
+    select(-`30其他內容`)%>%
+    spread("x30困擾的問題",value,fill=0)
+names(data1) = c("帳號","30情緒管理", "30經濟壓力", "30對未來進路的迷惘", "30取得課業學習上的協助", "30健康管理", "30與班上同學的互動", 
+                 "30與家人的互動", "30與老師的互動", "30沉迷網路/網路遊戲等", "30其他", "30參與社團活動", "30課業學習內容", "30課業競爭的壓力",
+                 "30朋友交往/與異性相處", "30時間管理")
+data1 = data1 %>% left_join(data2)
+all_data = all_data%>%
+    left_join(data1)
+rm(data2)
+
+# 32就學期間，我「預計的學習重點」（可複選） 
+data1 = NULL
+# 分離每個人的選項
+for (i in 1:length(data$stud_no)) {
+    cc1 = strsplit(data$`32What.are.your.learning.focuses.during.school.years?.(multiple.choices)`[i],split=";") %>% unlist 
+    cc1 = data.frame("帳號"=data$帳號[i],"x32預計的學習重點"=cc1)
+    data1 = rbind(data1, cc1)
+    rm(cc1)
+}
+data1[,2]=gsub(" ","",data1[,2]) #去 空白
+data1$`32其他內容` = ifelse( grepl("other",data1$x32預計的學習重點)==TRUE,gsub("other/","",data1$x32預計的學習重點),"") # 其他的內容 另外放
+data1$x32預計的學習重點 = ifelse( grepl("other",data1$x32預計的學習重點)==TRUE,"other",data1$x32預計的學習重點) #整理'其他'
+data1$value = 1
+data2 = data1 %>% select(帳號,`32其他內容`) %>% filter(`32其他內容`!="")
+data1 = data1 %>%
+  select(-`32其他內容`)%>%
+    spread("x32預計的學習重點",value,fill=0)
+names(data1) = c("帳號", "32行政協調能力", "32分析與批判思考能力", "32清晰有條理的表達能力", "32情緒管理能力", "32創業精神與能力",
+                             "32外語能力", "32資訊蒐集與整理能力", "32資訊科技應用能力", "32創新創意思維能力", "32跨域整合能力", "32人際溝通能力",
+                             "32領導、管理及規劃能力", "32數理邏輯能力", "32發現及解決問題的能力", "32與就業相關的專業能力", "32專案執行能力",
+                             "32閱讀能力", "32電腦文書處理能力", "32團隊合作能力", "32時間管理能力", "32國際移動力", "32文字撰寫能力")
+data1 = data1 %>% left_join(data2)
+all_data = all_data%>%
+    left_join(data1)
+#-----------------------
+
+# 35其他建議事項（如有其他建議學校改善的事項，敬請提出）
+data1= data %>% select(帳號,"35Other.suggestions:.To.make.improvement,.please.feel.free.to.offer.your.suggestions.on.your.school")
+data1$feedback_行政 = ifelse( grepl("website",data1[,2]),1,0 )
+data1$feedback_宿舍 = ifelse( grepl("toilet|dormitory",data1[,2]),1,0 )
+
+data1$`35Other.suggestions:.To.make.improvement,.please.feel.free.to.offer.your.suggestions.on.your.school` = gsub("_x000D_\n","。",data1$`35Other.suggestions:.To.make.improvement,.please.feel.free.to.offer.your.suggestions.on.your.school` )
+all_data$帳號 = as.character(all_data$帳號)
+all_data = all_data %>%
+    left_join(data1)
+rm(data1)
+
+#
+names(data)[2] <-  "3目前家庭經濟狀況"
+names(data)[4] <-  "6原畢業學校所在地區"
+names(data)[7] <-  "9我的入學管道"
+names(data)[11] <-  "13本校在我心目中的志願排序"
+names(data)[12] <-  "14目前就讀科系在我心目中的志願排序"
+names(data)[17] <-  "19-1學習範圍與目標"
+names(data)[18] <-  "19-2學生畢業時需具備的核心能力"
+names(data)[19] <-  "19-3必、選修課程規劃及修課規定"
+names(data)[20] <-  "19-4課程與未來就業的關聯性"
+names(data)[21] <-  "19-5各課程所欲培養的能力"
+names(data)[22] <-  "19-6畢業條件相關規定"
+
+#
+data = data%>%
+    select(帳號,stud_no,
+           college_name,majr_full_name,majr_simple_name,
+           sex,kind1_name, 
+           `3目前家庭經濟狀況`,`6原畢業學校所在地區`,
+           `9我的入學管道`,`13本校在我心目中的志願排序`,
+           `14目前就讀科系在我心目中的志願排序`,
+           `19-1學習範圍與目標`,`19-2學生畢業時需具備的核心能力`,
+           `19-3必、選修課程規劃及修課規定`,`19-4課程與未來就業的關聯性`,
+           `19-5各課程所欲培養的能力`,`19-6畢業條件相關規定`)
+end_data = data %>%
+    left_join(all_data)
+
+write.csv(end_data,"C:\\Users\\User\\Desktop\\110學年度全國大專新生學習適應調查_複選題_英文版.csv",row.names=FALSE)
