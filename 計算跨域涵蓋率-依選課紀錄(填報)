@@ -1,0 +1,350 @@
+# 依選課紀錄計算
+	# 注意 存檔位置，先在"高教深耕"新增學期資料夾，最後再移至跨域裡(依日期分)
+	# 清除過去資料
+	rm(list=ls())
+	
+
+	#----------匯入連結資料庫所需的套件----------------------------------------------------------------------------------------------------------------------------------
+	library(tidyr)
+	library(tidyverse)
+	library(RODBC)
+	library(readr)
+	# 建立ODBC連接，依序輸入資料來源名稱、識別碼和密碼
+	channel <- odbcConnect("R_SQL", uid="-----", pwd="-----")
+	
+
+	#----------選擇要連接的table => 註冊紀錄 學生基本資料 雙主修&輔系數據 開課清單 在學修課成績  選課紀錄----------------------------------------------------------------------
+	thuir_register<- sqlQuery(channel, "SELECT * FROM -",stringsAsFactors=FALSE)
+	student_info <- sqlQuery(channel, "SELECT * FROM-",stringsAsFactors=FALSE) 
+	secddegree <- sqlQuery(channel, "SELECT * FROM -",stringsAsFactors=FALSE) 
+	studcurr_attr <- sqlQuery(channel, "SELECT * FROM -",stringsAsFactors=FALSE)  
+	studscore_attr <- sqlQuery(channel, "SELECT * FROM -",stringsAsFactors=FALSE)
+	studsele <- sqlQuery(channel, "SELECT * FROM -",stringsAsFactors=FALSE) 
+	
+
+	names(thuir_register )<-tolower(names(thuir_register ))  #改成小寫
+	names(studcurr_attr)<-tolower(names(studcurr_attr))  
+	names(studscore_attr )<-tolower(names(studscore_attr ))  
+	names(studsele )<-tolower(names(studsele))
+	names(student_info )<-tolower(names(student_info))
+	
+
+	#----------定義------------------------------------------------------------------------------------------------------------------------------------------------------
+	# 篩選條件(可依定義修改) => "開學時有註冊" & 學制=日間學士班 & 學年期 & 課程屬性
+	# 跨域定義包含 雙主修、輔系 
+	#        課程:院整合性課程、微學分、學分學程、
+	#         大學院、跨域創新學院(樂齡學院+雲創學院)、課程模組、AI計畫L2、
+	#         學分學程-微學程、學生自主學分課程、特色雙掛課程、
+	#   2020/01 去除    大一中文課程模組、大二英文課程模組、
+	#   2020/10 加 AI計畫L2
+	#   2021/05 加 學分學程微學程、學生自主學分課程、特色雙掛課程
+	#   2021/12 加 "深碗型課程","多元化模組課程","微課程"
+	#   2021/12 加 AI計畫L1    
+	#   (學生學系與 開課學系 需不同)
+	#   "依選課紀錄計算學生數" 因為計算時間多在學期中
+	#   不要列入的 1.系申請學分學程(學位的)的學生 2.修系整合式課程
+	# 校際選課尚未納入跨域定義
+	
+
+	#----------設定------------------------------------------------------------------------------------------------------------------------
+	reg=c("註冊-休學","註冊-退學","註冊-註冊")
+	#reg=c("註冊-註冊")
+	type=c("日間學士班","進修學士班")
+	cour_attr=c("院整合式","微學分課程","學分學程","大學院課程","深碗型課程","多元化模組課程","微課程",
+	            "創新學院-樂齡","創新學院-雲創","課程模組","AI計畫L2","AI計畫L1",
+	            "學分學程-微學程","學生自主學分課程","特色雙掛課程")   
+	# "大一中文課程模組","大二英文課程模組",
+	
+
+	symi=1092 #要計算學期
+	
+
+	#----------存檔資料夾------------------------------------------------------------------------------------------------------------------------
+	file_clip="D:\\Users\\Felix\\Desktop\\----\\-------\\-------\\----\\"
+	
+
+	
+
+	#----------從註冊記錄抓 學期 及學制  #*註冊狀態含學期中休退學的學生*#----------------------------------------------------------------------------
+	thuir_register$sym=paste0(thuir_register$setyear,thuir_register$setterm)  #學年期
+	register=thuir_register%>%
+	  filter(type_name%in%type & sym%in%symi & reg_string%in%reg) #抓取學生註冊
+	#filter(grade %in% c(1,2,3,4))
+	
+
+	
+
+	#----------從student_info抓學生國籍-----------------------------------------------------------------------------------------------------------
+	#student_info$nationality_name[student_info$nationality_name == '' | student_info$nationality_name == '臺灣' ] <- '本地生'
+	#regist_stud=merge(register,student_info[,c("stud_no", "nationality_name")],by="stud_no",x.all=TRUE) #合併
+	
+
+	
+
+	#----------統計人數---------------------------------------------------------------------------------------------------------------------------
+	people1=register%>%
+	  group_by(sym,type_name)%>%
+	  summarise(  "休學"=length(which(a_reg=="休學")),
+	              "退學"=length(which(a_reg=="退學")),
+	              "註冊"=length(which(a_reg=="註冊")),
+	              "總註冊人數"=length(stud_no))
+	names(people1)[1:2]=c("學期","學制")
+	people2=  register%>%
+	  summarise( "學期"=as.character(symi),"學制"="全校學士班",
+	             "休學"=length(which(a_reg=="休學")),
+	             "退學"=length(which(a_reg=="退學")),
+	             "註冊"=length(which(a_reg=="註冊")),
+	             "總註冊人數"=length(stud_no))
+	people1 = rbind(people1,people2)
+	rm(people2)
+	file=paste0(file_clip,symi,"\\1.",symi,"學期_學生統計2.csv")  #總表存檔位置
+	write_excel_csv(people1,file,col_names=T)  
+	
+
+	write.csv(register,paste0(file_clip,symi,"\\2.",symi,"學期_學生註冊資料2.csv"),row.names=F)  
+	stid=as.character(register$stud_no) #symi學期 有註冊學生學號
+	
+
+	#============================================================================================================================================#
+	#----------1. 雙主修+輔系  secddegree     #----------------------------------------------------------------------------------------------------
+	#----------會有重複的 #同時輔系+雙主修--------------------------------------------------------------------
+	secddegree$sym=paste0(secddegree$secd_year,secddegree$secd_term)
+	
+
+	#----------只有c("申請中","完成")  ----------------------------------------------------------------------
+	ddegree1=secddegree %>%
+	  filter(stud_no%in%stid & sym<=symi & secd_status%in%c("申請中","完成"))
+	  
+	#----------統計------------------------------------------------------------------------------------------
+	stat1=ddegree1%>%
+	  group_by(type_name,secd_div)%>%
+	  summarise("人數"=length(unique(stud_no)),
+	            "人次"=length(stud_no))%>%
+	  data.frame()
+	names(stat1)[1:2]=c("學制","類別")
+	
+
+	stat2=ddegree1%>%
+	  group_by(type_name)%>%
+	  summarise("類別"="雙+輔",
+	            "人數"=length(unique(stud_no)),
+	            "人次"=length(stud_no))%>%
+	  data.frame()
+	names(stat2)[1]=c("學制")
+	total_secd=bind_rows(stat1,stat2)
+	
+
+	
+
+	write_excel_csv(total_secd,file,col_names=T,append=TRUE) 
+	write.csv(ddegree1,paste0(file_clip,symi,"\\3.",symi,"學期_雙主修or輔系_學生資料2.csv"),row.names=F)  
+	
+
+	rm(stat1,stat2)
+	
+
+	
+
+	#===============================================================================================================================================#
+	#----------2. 跨域課程   studscore_attr  #--------------------------------------------------------------------
+	studcurr_attr$sym=paste0(studcurr_attr$setyear,studcurr_attr$setterm)
+	
+
+	#----------用 選課紀錄 抓取資料--------------------------------------------------------------------------------
+	studsele0=studsele%>%
+	  mutate(sym=paste0(setyear,setterm),
+	         scl=paste0(setyear,setterm,curr_code))%>% #串課程資料用 
+	  filter(stud_no%in% stid & sym==symi) #抓學期有註冊學生
+	#----------抓跨域的課程代碼------------------------------------------------------------------------------------
+	studcurr_attr$scl=paste0(studcurr_attr$setyear,studcurr_attr$setterm,studcurr_attr$curr_code)
+	studcurr_attr$curr_majr_name=ifelse(is.na(studcurr_attr$curr_majr_name)==TRUE,studcurr_attr$majr_name,studcurr_attr$curr_majr_name)
+	
+
+	class2=merge(studsele0,studcurr_attr[,c("curr_sel","cour_cname","cour_code","curr_majr_name","curr_attr","scl")],by="scl",x.all=TRUE) #合併
+	
+
+	
+
+	#----------抓 學生學系!=開課學系--------------------------------------------------------------------------------
+	class2$majr_full_name[class2$majr_full_name == '化學系化學生物組' | class2$majr_full_name == '化學系化學組'] <- '化學系'
+	class2$majr_full_name[class2$majr_full_name == '生命科學系生物醫學組' | class2$majr_full_name == '生命科學系生態暨生物多樣性組'] <- '生命科學系'
+	class2$majr_full_name[class2$majr_full_name == '政治學系政治理論組' | class2$majr_full_name == '政治學系國際關係組'] <- '政治學系'
+	class2$majr_full_name[class2$majr_full_name == '經濟學系一般經濟組' | class2$majr_full_name == '經濟學系產業經濟組'] <- '經濟學系'
+	class2$majr_full_name[class2$majr_full_name == '資訊工程學系軟體工程組' | class2$majr_full_name == '資訊工程學系資電工程組' | class2$majr_full_name == '資訊工程學系數位創意組'] <- '資訊工程學系'
+	class2$majr_full_name[class2$majr_full_name == '電機工程學系IC設計與無線通訊組' | class2$majr_full_name == '電機工程學系奈米電子與能源技術組'] <- '電機工程學系'
+	class2$majr_full_name[class2$majr_full_name == '應用物理學系材料及奈米科技組'] <- '應用物理學系'
+	
+
+	#tt1=regexpr ("系", class2$majr_full_name)  #找學系中"系"的位置
+	#class2$department=ifelse(tt1>0,substr(class2$majr_full_name,1,tt1),class2$majr_full_name)  #若學系後面有分組 拿掉分組
+	#tt2=regexpr ("研究所", class2$majr_full_name)  #找學系中"研究所"的位置
+	#class2$department=ifelse(tt2>0,substr(class2$majr_full_name,1,tt2+2),class2$department)  #若研究所後面有分組or在職 拿掉分組
+	
+
+	class2$yndif=ifelse(class2$majr_full_name == class2$curr_majr_name,"同學系","不同學系") #學生學系 與 開課學系 不同的為1
+	stud_scoreattr=class2[class2$sym==symi & class2$curr_attr%in%cour_attr,]  #抓當學期 有修跨域的學生(重複)
+	
+
+	class_info=studcurr_attr[studcurr_attr$sym%in%symi & studcurr_attr$curr_attr%in%cour_attr, ]    #抓跨域課程資料
+	write.csv(class_info,paste0(file_clip,symi,"\\5.",symi,"學期_跨域課程資料2.csv"),row.names=F) 
+	write.csv(stud_scoreattr,paste0(file_clip,symi,"\\6.",symi,"學期_修跨域_學生資料2.csv"),row.names=F)  
+	#rm(tt1,tt2,class2)
+	#----------統計人數------------------------------------------------------------------------------------------
+	stat1=stud_scoreattr%>%
+	  group_by(type_name,curr_attr)%>%
+	  summarise("人數"=length(unique(stud_no)),
+	            "人次"=length(stud_no),
+	            "不同學系(人數)"=length(unique(stud_no[yndif=="不同學系"])),
+	            "不同學系(人次)"=length(unique(stud_no[yndif=="不同學系"])))%>%
+	  data.frame()
+	names(stat1)[1:2]=c("學制","類別")
+	stat2=stud_scoreattr%>%
+	  group_by(type_name)%>%
+	  summarise("類別"="全校跨域",
+	            "人數"=length(unique(stud_no)),
+	            "人次"=length(stud_no),
+	            "不同學系(人數)"=length(unique(stud_no[yndif=="不同學系"])),
+	            "不同學系(人次)"=length(unique(stud_no[yndif=="不同學系"])))%>%
+	  data.frame()    
+	names(stat2)[1]=c("學制")
+	allcurr=rbind(stat1,stat2)
+	
+
+	write_excel_csv(allcurr,file,col_names=T,append=TRUE)  
+	rm(stat1,stat2)
+	
+
+	
+
+	#===============================================================================================================================================#
+	#----------4. 跨系修課               #----------------------------------------------------------------------
+	notin=c("通識教育中心","軍訓室","體育室","校共同必修課程","通識課程","大一英文",
+	        "抵免","英文能力檢定","外校","英語中心","微積分學前預備課程","學前微積分")  #不要抓的課
+	
+
+	notin=c("抵免")  #不要抓的課
+	
+
+	#----------用選課資料------------------------------------------------------------------------------------------
+	studsele$sym=paste0(studsele$setyear,studsele$setterm)
+	studsele$scl=paste0(studsele$setyear,studsele$setterm,studsele$curr_code)
+	studsele2=studsele[studsele$sym==symi & studsele$stud_no%in%stid,c("stud_no","type_name","college","majr_full_name","grade","scl") ]
+	studcurr_attr$scl=paste0(studcurr_attr$setyear,studcurr_attr$setterm,studcurr_attr$curr_code)
+	studcurr_attr1=studcurr_attr[studcurr_attr$sym==symi,c("sym","scl","setyear" ,"setterm","college_name" ,"majr_name","curr_code","cour_cname","cour_code",     
+	                                                       "curr_sel","curr_num", "curr_cname","is_eng","is_dual","curr_type","majr2_type","curr_majr_no","curr_majr_name",
+	                                                       "curr_attr") ]
+	class2=merge(studsele2,studcurr_attr1,by="scl",x.all=TRUE)
+	
+
+	class2=class2[!class2$majr2_type %in% notin ,]   #去除非專業跨系課程
+	class2=class2[!class2$curr_majr_name %in% notin ,]
+	class2=class2[!class2$cour_cname %in% notin ,]
+	class2=class2[!class2$majr_name %in% "微積分" ,]
+	class2=class2[grepl("共必修",class2$curr_cname)==FALSE ,]
+	class2=class2[grepl("微積分",class2$curr_cname)==FALSE ,]
+	
+
+	class2$curr_majr_name=ifelse(is.na(class2$curr_majr_name)==TRUE,class2$majr_name,class2$curr_majr_name) #雲創在curr_majr_name=null 改抓majr_name
+	
+
+	#tt1=regexpr ("系", class2$majr_full_name)  #找學系中"系"的位置
+	#class2$department=ifelse(tt1>0,substr(class2$majr_full_name,1,tt1),class2$majr_full_name)  #若學系後面有分組 拿掉分組
+	#tt2=regexpr ("研究所", class2$majr_full_name)  #找學系中"研究所"的位置
+	#class2$department=ifelse(tt2>0,substr(class2$majr_full_name,1,tt2+2),class2$department)  #若研究所後面有分組or在職 拿掉分組
+	
+
+	class2$majr_full_name[class2$majr_full_name == '化學系化學生物組' | class2$majr_full_name == '化學系化學組'] <- '化學系'
+	class2$majr_full_name[class2$majr_full_name == '生命科學系生物醫學組' | class2$majr_full_name == '生命科學系生態暨生物多樣性組'] <- '生命科學系'
+	class2$majr_full_name[class2$majr_full_name == '政治學系政治理論組' | class2$majr_full_name == '政治學系國際關係組'] <- '政治學系'
+	class2$majr_full_name[class2$majr_full_name == '經濟學系一般經濟組' | class2$majr_full_name == '經濟學系產業經濟組'] <- '經濟學系'
+	class2$majr_full_name[class2$majr_full_name == '資訊工程學系軟體工程組' | class2$majr_full_name == '資訊工程學系資電工程組' | class2$majr_full_name == '資訊工程學系數位創意組'] <- '資訊工程學系'
+	class2$majr_full_name[class2$majr_full_name == '電機工程學系IC設計與無線通訊組' | class2$majr_full_name == '電機工程學系奈米電子與能源技術組'] <- '電機工程學系'
+	class2$majr_full_name[class2$majr_full_name == '應用物理學系材料及奈米科技組'] <- '應用物理學系'
+	
+
+	diffdep=class2[class2$majr_full_name != class2$curr_majr_name,] #學生學系 與 開課學系 不同的
+	diffdep=base::unique(diffdep[,-24])
+	
+
+	#write.csv(diffdep,paste0(file_clip,symi,"\\7.",symi,"學期_修跨系課程_學生資料.csv"),row.names=F)      
+	
+
+	#----------不分 必選修等------------------------------------------------------------------------------------------
+	stud_diffdep=base::unique(diffdep[,c("setyear","setterm","stud_no","type_name","college","majr_full_name","grade")])  #有修跨系選修學生名單(不重複)
+	ddsum=data.frame(table(diffdep$stud_no))   #學生修跨系次數
+	names(ddsum)=c("stud_no","times")
+	stud_diffdep2=merge(stud_diffdep,ddsum,by="stud_no",x.all=TRUE) 
+	#----------算全校 修多門跨系選修人數--------------------------------------------------------------------------------
+	dd=data.frame(table(stud_diffdep2$type_name,stud_diffdep2$times),"curr_sel"="全部")
+	names(dd)=c("學制","修課次數","人數","類別")
+	dd$修課次數=paste0(dd$修課次數,"門")
+	dd=spread(dd,key="修課次數",value="人數")  #轉橫表格
+	
+
+	# write.csv(stud_diffdep2,paste0(file_clip,symi,"\\8.",symi,"學期_學生修跨系課程(不分類)_修課數.csv"),row.names=F) 
+	write_excel_csv(dd,file,col_names=T,append=TRUE)  
+	
+
+	#----------分必修  必選 選修--------------------------------------------------------------------------------------
+	ddsum2=data.frame(table(diffdep$stud_no,diffdep$curr_sel))   #學生修跨系次數 有分類
+	names(ddsum2)=c("stud_no","curr_sel","times")
+	stud_diffdep3=merge(stud_diffdep,ddsum2,by="stud_no")  #***
+	stud_diffdep3=stud_diffdep3[stud_diffdep3$times>0,]   #去0次
+	
+
+	dd2=data.frame(table(stud_diffdep3$type_name,stud_diffdep3$curr_sel,stud_diffdep3$times))
+	names(dd2)=c("學制","類別","修課次數","人數")
+	dd2$修課次數=paste0(dd2$修課次數,"門")
+	dd2=spread(dd2,key="修課次數",value="人數")  #轉橫表格
+	
+
+	dd2=dd2[apply(dd2[,3:length(dd2)],1,sum)>0,]  #去掉都沒有修課的筆數
+	
+
+	# write.csv(stud_diffdep3,paste0(file_clip,symi,"\\9.",symi,"學期_學生修跨系課程(有分類)_修課數.csv"),row.names=F) 
+	write_excel_csv(dd2,file,col_names=T,append=TRUE)  
+	
+
+	rm(ddsum,ddsum2,stud_diffdep)
+	
+
+	###=====全校跨域人數(上述總和 去重複的總學生)   ===================================================================================================#
+	#ddegree1        3_雙主修or輔系_學生資料 ---->不含取消
+	#stud_scoreattr  6_修跨域_學生資料 
+	#diffdep        7_學生修跨系課程資料 
+	
+
+	#----------跨域_同系--------------------------------------------------------------------------------------------------
+	allsd=rbind(ddegree1[,c("stud_no","type_name")],stud_scoreattr[,c("stud_no","type_name")])
+	allsd=base::unique(allsd)
+	sumall0=data.frame(table(allsd$type_name))
+	names(sumall0)=c("學制","跨域總人數(含同系)的人數")
+	
+
+	write_excel_csv(sumall0,file,col_names=T,append=TRUE)  
+	rm(allsd)
+	
+
+	#----------若跨域分"不同系" 的人數統計-------------------------------------------------------------------------------- 
+	allsd=rbind(ddegree1[,c("stud_no","type_name")],stud_scoreattr[stud_scoreattr$yndif=="不同學系",c("stud_no","type_name")])
+	allsd=base::unique(allsd)
+	tot1=data.frame(table(allsd$type_name))
+	names(tot1)=c("學制","跨域總人數(不同科系)_的人數")    
+	
+
+	
+
+	write_excel_csv(tot1,file,col_names=T,append=TRUE) 
+	rm(allsd)
+	
+
+	#----------跨域百分比 = 跨域(不同科系)/全校註冊人數----------------------------------------------------------------------
+	r1=merge(tot1,people1[,c("學制","總註冊人數")],by="學制")
+	r1$"百分比"=sprintf("%.2f",r1$"跨域總人數(不同科系)_的人數"/r1$總註冊人數*100)
+	ratio=paste0("東海大學 ",r1$學制," 符合跨域的比例為",r1$百分比,"%")
+	ratio
+	
+
+	write_excel_csv(r1,file,col_names=T,append=TRUE) 
+	
+

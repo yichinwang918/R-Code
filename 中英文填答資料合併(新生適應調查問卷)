@@ -1,0 +1,144 @@
+#109、110中英文資料合併
+rm(list=ls())
+
+library(openxlsx) # getSheetNames() read.xlsx()
+library(tidyverse)
+library(readr)
+
+#讀資料 中英文版 sheet1
+data_ch = read.xlsx("C:\\Users\\User\\Desktop\\----\\台評會&TAIR分析結果\\2021\\2.新生適應調查問卷\\原始資料-填答結果\\110學年度大專新生學習適應調查填答資料(----)\\110學年度大專新生學習適應調查填答資料(----)\\110學年度全國大專新生學習適應調查(大學版)-(----).xlsx", sheet=1,colNames = TRUE) 
+data_en = read.xlsx("C:\\Users\\User\\Desktop\\----\\台評會&TAIR分析結果\\2021\\2.新生適應調查問卷\\原始資料-填答結果\\110學年度大專新生學習適應調查填答資料(----)\\110學年度大專新生學習適應調查填答資料(----)\\110學年度全國大專新生學習適應調查(大學版)-(----)_英文.xlsx", sheet=1,colNames = TRUE) 
+
+names(data_ch)
+names(data_en)
+
+for(i in c(1:173)){
+  names(data_en)[i] <- names(data_ch)[i]
+}
+
+data <- rbind(data_ch, data_en)
+data$'學年' <- 110
+
+
+#讀資料 中英文版 sheet2
+data_ch2 <- read.xlsx("C:\\Users\\User\\Desktop\\----\\台評會&TAIR分析結果\\2021\\2.新生適應調查問卷\\原始資料-填答結果\\110學年度大專新生學習適應調查填答資料(----)\\110學年度大專新生學習適應調查填答資料(----)\\110學年度全國大專新生學習適應調查(大學版)-(----).xlsx", sheet=2,colNames = TRUE) 
+data_en2 <- read.xlsx("C:\\Users\\User\\Desktop\\----\\台評會&TAIR分析結果\\2021\\2.新生適應調查問卷\\原始資料-填答結果\\110學年度大專新生學習適應調查填答資料(----)\\110學年度大專新生學習適應調查填答資料(----)\\110學年度全國大專新生學習適應調查(大學版)-(----)_英文.xlsx", sheet=2,colNames = TRUE) 
+
+names(data_ch2)
+names(data_en2)
+
+#for(i in c(1:173)){
+#  names(data_en)[i] <- names(data_ch)[i]
+#}
+
+data2 <- rbind(data_ch2, data_en2)
+data2$'學年' <- 110
+
+#讀資料 中英文版複選題 sheet3
+data_ch3 <- read.xlsx("C:\\Users\\User\\Desktop\\----\\台評會&TAIR分析結果\\2021\\2.新生適應調查問卷\\原始資料-填答結果\\110學年度大專新生學習適應調查填答資料(----)\\110學年度大專新生學習適應調查填答資料(----)\\110學年度全國大專新生學習適應調查(大學版)-(----).xlsx", sheet=3,colNames = TRUE) 
+data_en3 <- read.xlsx("C:\\Users\\User\\Desktop\\----\\台評會&TAIR分析結果\\2021\\2.新生適應調查問卷\\原始資料-填答結果\\110學年度大專新生學習適應調查填答資料(----)\\110學年度大專新生學習適應調查填答資料(----)\\110學年度全國大專新生學習適應調查(大學版)-(----)_英文.xlsx", sheet=3,colNames = TRUE) 
+
+names(data_ch3)
+names(data_en3)
+
+#英文版缺少欄位自行增加
+#第10題選項
+data_en3$'10報考簡章' <- 0
+data_en3$'10補習班宣導' <- 0
+data_en3$'10學校立牌廣告（公車廣告、招牌廣告）'<- 0
+
+#第12題
+data_en3$'12可銜接未來升學' <- 0
+data_en3$'12受原本就讀學科影響' <- 0
+data_en3$'12單純是考試分發' <- 0
+
+#第18題
+data_en3$'18其他' <- 0
+
+#第32題
+data_en3$'32其他' <- 0
+data_en3$'32其他內容' <- 0
+
+#feedback
+data_en3$'feedback_勞作' <- 0
+data_en3$'feedback_教學設備' <- 0
+data_en3$'feedback_環境'<- 0
+data_en3$'feedback_教學' <- 0
+data_en3$'feedback_二校'<- 0
+
+names(data_en3)[102] <- names(data_ch3)[110]
+
+data3 <- rbind(data_ch3, data_en3)
+data3$'學年' <- 110
+
+#write.csv(data, "C:\\Users\\User\\Desktop\\----\\------------\\2021\\2.新生適應調查問卷\\原始資料-填答結果\\110學年度大專新生學習適應調查填答資料(----)\\110學年度大專新生學習適應調查填答資料(----)\\整理後的\\110中英原始資料合併.csv",row.names=F)
+#write.csv(data2, "C:\\Users\\User\\Desktop\\----\\------------\\2021\\2.新生適應調查問卷\\原始資料-填答結果\\110學年度大專新生學習適應調查填答資料(----)\\110學年度大專新生學習適應調查填答資料(----)\\整理後的\\110中英文版.csv",row.names=F)
+#write.csv(data3, "C:\\Users\\User\\Desktop\\----\\------------\\2021\\2.新生適應調查問卷\\原始資料-填答結果\\110學年度大專新生學習適應調查填答資料(----)\\110學年度大專新生學習適應調查填答資料(----)\\整理後的\\110中英文複選題資料合併.csv",row.names=F)
+
+
+
+#讀入109的資料
+data_109 = read.xlsx("D:\\Users\\Felix\\Desktop\\----\\------------\\2020\\2.新生適應調查問卷\\109學年度全國大專新生學習適應調查_中.xlsx", sheet=1,colNames = TRUE) #讀取sheet1
+data2_109 = read.xlsx("D:\\Users\\Felix\\Desktop\\----\\------------\\2020\\2.新生適應調查問卷\\109學年度全國大專新生學習適應調查_中.xlsx", sheet=2,colNames = TRUE) #讀取sheet2
+data3_109 = read.xlsx("D:\\Users\\Felix\\Desktop\\----\\------------\\2020\\2.新生適應調查問卷\\109學年度全國大專新生學習適應調查_中.xlsx", sheet=3,colNames = TRUE) #讀取sheet3
+
+data_109$'學年' <- 109
+data2_109$'學年' <- 109
+data3_109$'學年' <- 109
+
+#109-110資料合併
+#sheet1
+names(data_109)
+names(data)
+data <- data[,-5]
+for(i in 1:173){
+  names(data)[i] <- names(data_109)[i]
+}
+df_109110_1 <- rbind(data_109, data)
+
+
+#sheet2
+names(data2_109)
+names(data2)
+df_109110_2 <- rbind(data2_109, data2)
+
+
+#sheet3
+names(data3_109)
+names(data3)
+
+data3_109$'31其他內容' <- 0
+data3_109$'feedback_二校' <- 0
+
+#檢查109與110資料是否排序一樣後才可合併
+data3_109 <- data3_109[,c(1:108,117,109:115,118,116)]
+
+for(i in 1:118){
+  names(data3)[i] <- names(data3_109)[i]
+}
+df_109110_3 <- rbind(data3_109, data3)
+
+
+#新增欄位：帳號+學年
+df_109110_1$'帳號+學年' = paste0(df_109110_1$帳號,":",df_109110_1$學年)
+df_109110_2$'帳號+學年' = paste0(df_109110_2$帳號,":",df_109110_2$學年)
+df_109110_3$'帳號+學年' = paste0(df_109110_3$帳號,":",df_109110_3$學年)
+
+
+#將多格資料表匯出至同一excel檔裡
+wb <- createWorkbook()
+addWorksheet(wb, sheetName = "109-110原始資料合併")
+addWorksheet(wb, sheetName = "109-110中英文版")
+addWorksheet(wb, sheetName = "109-110複選題")
+freezePane(wb, sheet = 1, firstRow = TRUE, firstCol = TRUE)
+writeDataTable(wb, sheet = 1, df_109110_1,
+               colNames = TRUE, rowNames = FALSE)
+               #tableStyle = "TableStyleLight9")
+writeDataTable(wb, sheet = 2, df_109110_2,
+               colNames = TRUE, rowNames = FALSE)
+               #tableStyle = "TableStyleLight9")
+writeDataTable(wb, sheet = 3, df_109110_3,
+               colNames = TRUE, rowNames = FALSE)
+               #tableStyle = "TableStyleLight9")
+saveWorkbook(wb, "C:\\Users\\User\\Desktop\\----\\------------\\2021\\2.新生適應調查問卷\\原始資料-填答結果\\110學年度大專新生學習適應調查填答資料(----)\\110學年度大專新生學習適應調查填答資料(----)\\109-110學年度大專新生學習適應調查填答資料(----)資料合併.xlsx", overwrite = TRUE)
+
